@@ -37,3 +37,4 @@ htmlcov/
 .nyc_output/
 ```
 .vs/
+.dotnet_cli_home/

@@ -12,6 +12,7 @@
         public string ExecutionLog { get; set; } = string.Empty;
         public Func<CancellationToken, Task> Action { get; set; } = null!;
         public RetryConfig? RetryConfig { get; set; }
+        public RetryConfig? FailRetryConfig { get; set; }
         public Func<CancellationToken, Task>? OnSuccessHandler { get; set; }
         public Func<CancellationToken, Task>? FailHandler { get; set; }
         public Func<Exception, CancellationToken, Task>? FailErrorHandler { get; set; }

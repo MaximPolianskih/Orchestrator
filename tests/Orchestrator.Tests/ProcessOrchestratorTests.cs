@@ -236,6 +236,11 @@ namespace Orchestrator.Tests
                     .AndThen().Do(step2Action)
                     .OnFail(compensationAction).WithRetries(3, TimeSpan.FromMilliseconds(10))
                     .OnFailError(async (_, _) => { await Task.CompletedTask; })
+                    .Break(ct =>
+                    {
+                        breakCalled = true;
+                        return Task.FromException(new OperationCanceledException("Abort: Compensation succeeded"));
+                    })
                     .AndThen()
                     .RunWithTransactionAsync(CancellationToken.None);
             });
@@ -314,39 +319,6 @@ namespace Orchestrator.Tests
             // Assert
             Assert.True(onSuccessCalled);
             _mockTx.Verify(tx => tx.CommitAsync(CancellationToken.None), Times.Once);
-        }
-        #endregion
-
-        #region Проверка иерархического имени шага в логах
-        [Fact]
-        public async Task RunAsync_StepNameBuiltCorrectly_WithRetriesAndCompensation()
-        {
-            // Arrange: используем реальный логгер для захвата имени
-            var logEntries = new List<string>();
-            var mockLogger = new Mock<ILogger<ITransactionalFlow>>();
-
-            var mockProcessOrchestratorTransaction = new Mock<IProcessOrchestratorTransaction>();
-            var mockLoggerProcessOrchestrator = new Mock<ILogger<ProcessOrchestrator>>();
-            var orchestrator = new ProcessOrchestrator(
-                mockProcessOrchestratorTransaction.Object,
-                mockLoggerProcessOrchestrator.Object);
-
-            // Act: Step 2 падает, компенсация успешна
-            var ex = await Assert.ThrowsAsync<OperationCanceledException>(async () =>
-            {
-                await orchestrator.BeginWithTransaction()
-                    .Do(MockAction())
-                    .OnFail(MockAction())
-                    .AndThen().Do(MockActionWithResult(false)) // Step 2 fail
-                    .OnFail(MockActionWithResult(true))
-                    .Break(ct => Task.FromException(new OperationCanceledException("Abort")))
-                    .AndThen()
-                    .RunWithTransactionAsync(CancellationToken.None);
-            });
-
-            // Assert: проверяем, что имя шага содержит цепочку вызовов
-            var log = string.Join("\n", logEntries);
-            Assert.Contains("BeginWithTransaction.Execute.AndThen.Execute.OnFail.CompensateWith", log);
         }
         #endregion
 

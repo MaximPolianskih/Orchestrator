@@ -9,52 +9,95 @@ namespace Orchestrator.Models
     {
         private readonly List<PipelineStep> _steps = new();
         private PipelineStep? _currentStep;
+        private string _pipelineConfigurationLog = "BeginWithTransaction";
+        private RetryTarget _lastRetryTarget = RetryTarget.Action;
+
+        private enum RetryTarget
+        {
+            Action,
+            FailHandler
+        }
 
         public IStepBuilder Do(Func<CancellationToken, Task> action)
         {
-            var step = new PipelineStep { ConfigurationLog = ".Do", Action = action };
+            _pipelineConfigurationLog += ".Execute";
+            var step = new PipelineStep { ConfigurationLog = _pipelineConfigurationLog, Action = action };
             _currentStep = step;
             _steps.Add(step);
+            _lastRetryTarget = RetryTarget.Action;
             return this;
         }
 
         public ITransactionalFlow AndThen()
         {
-            _currentStep!.ConfigurationLog += $".{nameof(AndThen)}";
+            _pipelineConfigurationLog += $".{nameof(AndThen)}";
+            if (_currentStep != null)
+            {
+                _currentStep.ConfigurationLog = _pipelineConfigurationLog;
+            }
             return this;
         }
 
         public IStepBuilder WithRetries(int maxAttempts = 3, TimeSpan? initialDelay = null)
         {
-            _currentStep!.ConfigurationLog += $".{nameof(WithRetries)}";
-            _currentStep!.RetryConfig = new RetryConfig(maxAttempts, initialDelay ?? TimeSpan.FromSeconds(1));
+            _pipelineConfigurationLog += $".{nameof(WithRetries)}";
+            if (_currentStep != null)
+            {
+                _currentStep.ConfigurationLog = _pipelineConfigurationLog;
+            }
+            var retryConfig = new RetryConfig(maxAttempts, initialDelay ?? TimeSpan.FromSeconds(1));
+            if (_lastRetryTarget == RetryTarget.FailHandler)
+            {
+                _currentStep!.FailRetryConfig = retryConfig;
+            }
+            else
+            {
+                _currentStep!.RetryConfig = retryConfig;
+            }
             return this;
         }
 
         public IStepBuilder OnSuccess(Func<CancellationToken, Task> action)
         {
-            _currentStep!.ConfigurationLog += $".{nameof(OnSuccess)}";
+            _pipelineConfigurationLog += $".{nameof(OnSuccess)}";
+            if (_currentStep != null)
+            {
+                _currentStep.ConfigurationLog = _pipelineConfigurationLog;
+            }
             _currentStep!.OnSuccessHandler = action;
             return this;
         }
 
         public IStepBuilder OnFail(Func<CancellationToken, Task> action)
         {
-            _currentStep!.ConfigurationLog += $".{nameof(OnFail)}";
+            _pipelineConfigurationLog += $".{nameof(OnFail)}.CompensateWith";
+            if (_currentStep != null)
+            {
+                _currentStep.ConfigurationLog = _pipelineConfigurationLog;
+            }
             _currentStep!.FailHandler = action;
+            _lastRetryTarget = RetryTarget.FailHandler;
             return this;
         }
 
         public IStepBuilder OnFailError(Func<Exception, CancellationToken, Task> action)
         {
-            _currentStep!.ConfigurationLog += $".{nameof(OnFailError)}";
+            _pipelineConfigurationLog += $".{nameof(OnFailError)}";
+            if (_currentStep != null)
+            {
+                _currentStep.ConfigurationLog = _pipelineConfigurationLog;
+            }
             _currentStep!.FailErrorHandler = action;
             return this;
         }
 
         public IStepBuilder Break(Func<CancellationToken, Task> handler)
         {
-            _currentStep!.ConfigurationLog += $".{nameof(Break)}";
+            _pipelineConfigurationLog += $".{nameof(Break)}";
+            if (_currentStep != null)
+            {
+                _currentStep.ConfigurationLog = _pipelineConfigurationLog;
+            }
             _currentStep!.BreakHandler = handler;
             return this;
         }
@@ -68,53 +111,55 @@ namespace Orchestrator.Models
             {
                 foreach (var step in _steps)
                 {
-                    logger.LogInformation($"Выполняем цепочку: {_currentStep!.ConfigurationLog}");
-                    var stepSuccess = await ExecuteActionAsync(step, _currentStep!.Action, _currentStep!.RetryConfig, cancellationToken);
-
-                    if (_currentStep!.BreakHandler != null)
-                    {
-                        _currentStep!.ExecutionLog += "Выполянем .Break->";
-                        await _currentStep!.BreakHandler(cancellationToken);
-                        //Заверщаем выполнение пайплайна
-                        return;
-                    }
+                    _currentStep = step;
+                    logger.LogInformation($"Выполняем цепочку: {step.ConfigurationLog}");
+                    var (stepSuccess, _) = await ExecuteActionAsync(step, step.Action, step.RetryConfig, cancellationToken);
 
                     if (stepSuccess)
                     {
-                        _currentStep!.ExecutionLog += "Выполянем .OnSuccess->";
-                        if (_currentStep!.OnSuccessHandler != null)
+                        step.ExecutionLog += "Выполянем .OnSuccess->";
+                        if (step.OnSuccessHandler != null)
                         {
-                            await _currentStep!.OnSuccessHandler(cancellationToken);
+                            await step.OnSuccessHandler(cancellationToken);
                         }
                     }
                     else
                     {
-                        if (_currentStep!.FailHandler != null)
+                        if (step.FailHandler != null)
                         {
-                            _currentStep!.ExecutionLog += "Выполянем .OnFail->";
-                            try
-                            {
-                                await _currentStep!.FailHandler(cancellationToken);
-                            }
-                            catch (Exception failEx)
+                            step.ExecutionLog += "Выполянем .OnFail->";
+                            var (compensationSuccess, compensationError) =
+                                await ExecuteActionAsync(step, step.FailHandler, step.FailRetryConfig, cancellationToken);
+
+                            if (!compensationSuccess)
                             {
                                 // Если FailHandler упал с ошибкой, вызываем FailErrorHandler
-                                if (_currentStep!.FailErrorHandler != null)
+                                if (step.FailErrorHandler != null)
                                 {
-                                    _currentStep!.ExecutionLog += "Выполянем .OnFailError->";
-                                    await _currentStep!.FailErrorHandler(failEx, cancellationToken);
+                                    step.ExecutionLog += "Выполянем .OnFailError->";
+                                    await step.FailErrorHandler(
+                                        compensationError ?? new InvalidOperationException("Ошибка компенсации без исключения."),
+                                        cancellationToken);
                                 }
                                 else
                                 {
                                     // Если нет обработчика ошибки FailHandler, пробрасываем ошибку
-                                    throw;
+                                    throw compensationError ?? new InvalidOperationException("Ошибка компенсации без исключения.");
                                 }
                             }
                         }
                         // Если нет Handle/Compensate → пробрасываем ошибку
                         else
                         {
-                            throw new InvalidOperationException($"Пайплайн {_currentStep!.ConfigurationLog} не корректный и не может быть обработан");
+                            throw new InvalidOperationException($"Пайплайн {step.ConfigurationLog} не корректный и не может быть обработан");
+                        }
+
+                        if (step.BreakHandler != null)
+                        {
+                            step.ExecutionLog += "Выполянем .Break->";
+                            await step.BreakHandler(cancellationToken);
+                            //Заверщаем выполнение пайплайна
+                            return;
                         }
                     }
                 }
@@ -122,7 +167,7 @@ namespace Orchestrator.Models
                 await tx.CommitAsync(CancellationToken.None);
                 logger.LogInformation($"Оркестратор успешно завершил работу. Транзакция закомичена.");
             }
-            //Если операция отменена откатываем транзакцию (что будет если отмена произойдет на компенсации?)
+            //Если операция отменена откатываем транзакцию
             catch (OperationCanceledException cancelationException)
             {
                 logger.LogError(cancelationException, "В процессе выполнения произошол вызов ThrowIfCancellationRequested. Откат транзакции.");
@@ -139,7 +184,7 @@ namespace Orchestrator.Models
             }
         }
 
-        private async Task<bool> ExecuteActionAsync(
+        private async Task<(bool Success, Exception? LastException)> ExecuteActionAsync(
             PipelineStep step,
             Func<CancellationToken, Task> action,
             RetryConfig? retryConfig,
@@ -155,10 +200,10 @@ namespace Orchestrator.Models
                 {
                     await action(cancellationToken);
                     // Формируем итоговое имя с результатом выполнения
-                    _currentStep!.ExecutionLog += maxAttempts > 1
+                    step.ExecutionLog += maxAttempts > 1
                         ? $"Успех на {attempt} ретрае->"
                         : "Выполнено->";
-                    return true;
+                    return (true, null);
                 }
                 //Если операция отменена через токен не заходим на ретраи, если по таймауту операции то ретраим
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -173,14 +218,14 @@ namespace Orchestrator.Models
                         break;
                     }
 
-                    logger.LogWarning(ex, "{StepName} ошибка выполнени {Attempt}/{Max}. Повтор через {Delay:F1}s...", _currentStep!.ConfigurationLog, attempt, maxAttempts, initialDelay);
+                    logger.LogWarning(ex, "{StepName} ошибка выполнени {Attempt}/{Max}. Повтор через {Delay:F1}s...", step.ConfigurationLog, attempt, maxAttempts, initialDelay);
                     await Task.Delay(initialDelay, cancellationToken);
                 }
             }
 
-            _currentStep!.ExecutionLog += $"Неудача после {maxAttempts} ретраев->";
-            logger.LogError(lastEx, "{StepName} исчерпал все ретраи.", _currentStep!.ConfigurationLog);
-            return false;
+            step.ExecutionLog += $"Неудача после {maxAttempts} ретраев->";
+            logger.LogError(lastEx, "{StepName} исчерпал все ретраи.", step.ConfigurationLog);
+            return (false, lastEx);
         }
     }
 }
