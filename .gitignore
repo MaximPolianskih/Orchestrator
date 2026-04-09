@@ -1,0 +1,11 @@
+bin/
+obj/
+.vs/
+*.Development.json
+[Ll]ogs/
+[Ll]og/
+*.sln.bak
+*.env
+.aspnet/
+.vscode/launch.json
+.vscode/tasks.json

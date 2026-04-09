@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.37111.16
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Orchestrator", "Orchestrator.csproj", "{7320C3B4-7C4B-479C-936F-33B2744FFF37}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Orchestrator.Tests", "..\Orchestrator.Tests\Orchestrator.Tests.csproj", "{41510F20-237D-49AE-A8C6-42AE5EB317E9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7320C3B4-7C4B-479C-936F-33B2744FFF37}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7320C3B4-7C4B-479C-936F-33B2744FFF37}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7320C3B4-7C4B-479C-936F-33B2744FFF37}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7320C3B4-7C4B-479C-936F-33B2744FFF37}.Release|Any CPU.Build.0 = Release|Any CPU
+		{41510F20-237D-49AE-A8C6-42AE5EB317E9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{41510F20-237D-49AE-A8C6-42AE5EB317E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{41510F20-237D-49AE-A8C6-42AE5EB317E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{41510F20-237D-49AE-A8C6-42AE5EB317E9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {09E9700E-248A-4AD8-8208-A884ECD87A2E}
+	EndGlobalSection
+EndGlobal
