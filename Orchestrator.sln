@@ -10,7 +10,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.gitignore = .gitignore
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Orchestrator.Tests", "..\Orchestrator.Tests\Orchestrator.Tests.csproj", "{41510F20-237D-49AE-A8C6-42AE5EB317E9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Orchestrator.Tests", "..\Orchestrator\Orchestrator.Tests\Orchestrator.Tests.csproj", "{41510F20-237D-49AE-A8C6-42AE5EB317E9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
