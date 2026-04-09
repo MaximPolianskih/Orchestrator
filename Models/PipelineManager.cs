@@ -45,6 +45,13 @@ namespace Orchestrator.Models
             return this;
         }
 
+        public IStepBuilder OnFailError(Func<Exception, CancellationToken, Task> action)
+        {
+            _currentStep!.ConfigurationLog += $".{nameof(OnFailError)}";
+            _currentStep!.FailErrorHandler = action;
+            return this;
+        }
+
         public IStepBuilder Break(Func<CancellationToken, Task> handler)
         {
             _currentStep!.ConfigurationLog += $".{nameof(Break)}";
@@ -85,7 +92,24 @@ namespace Orchestrator.Models
                         if (_currentStep!.FailHandler != null)
                         {
                             _currentStep!.ExecutionLog += "Выполянем .OnFail->";
-                            await _currentStep!.FailHandler(cancellationToken);
+                            try
+                            {
+                                await _currentStep!.FailHandler(cancellationToken);
+                            }
+                            catch (Exception failEx)
+                            {
+                                // Если FailHandler упал с ошибкой, вызываем FailErrorHandler
+                                if (_currentStep!.FailErrorHandler != null)
+                                {
+                                    _currentStep!.ExecutionLog += "Выполянем .OnFailError->";
+                                    await _currentStep!.FailErrorHandler(failEx, cancellationToken);
+                                }
+                                else
+                                {
+                                    // Если нет обработчика ошибки FailHandler, пробрасываем ошибку
+                                    throw;
+                                }
+                            }
                         }
                         // Если нет Handle/Compensate → пробрасываем ошибку
                         else

@@ -1,11 +1,38 @@
+```gitignore
+# Build artifacts
 bin/
 obj/
-.vs/
-*.Development.json
-[Ll]ogs/
-[Ll]og/
-*.sln.bak
-*.env
-.aspnet/
-.vscode/launch.json
-.vscode/tasks.json
+*.dll
+*.exe
+*.pdb
+*.so
+*.dylib
+*.jar
+*.war
+*.class
+
+# Dependencies
+packages/
+node_modules/
+venv/
+.venv/
+.env
+.env.local
+*.env.*
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test coverage
+coverage/
+htmlcov/
+*.coverage
+.coverage.*
+.nyc_output/
+```

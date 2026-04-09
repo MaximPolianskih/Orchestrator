@@ -11,6 +11,12 @@
         /// <param name="action"></param>
         /// <returns></returns>
         IStepBuilder OnFail(Func<CancellationToken, Task> action);
+        /// <summary>
+        /// Обработка ошибки при выполнении FailHandler/OnFail (ошибка компенсации)
+        /// </summary>
+        /// <param name="action"></param>
+        /// <returns></returns>
+        IStepBuilder OnFailError(Func<Exception, CancellationToken, Task> action);
         /// <summary>Прерывание пайплайна</summary>
         IStepBuilder Break(Func<CancellationToken, Task> handler);
     }
