@@ -180,42 +180,42 @@ namespace Orchestrator.Tests
         #endregion
 
         //#region Шаг 2 упал → компенсация упала после ретраев → откат транзакции
-        //[Fact]
-        //public async Task RunAsync_Step2Fails_CompensationFailsAfterRetries_NotifyEmail_Aborts()
-        //{
-        //    // Arrange
-        //    var step2Action = MockActionWithResult(false);
-        //    var compensationAction = MockAction(failCount: 10, failureMessage: "Compensation failed");
-        //    var notifyCalled = false;
-        //    var breakCalled = false;
+        [Fact]
+        public async Task RunAsync_Step2Fails_CompensationFailsAfterRetries_NotifyEmail_Aborts()
+        {
+            // Arrange
+            var step2Action = MockActionWithResult(false);
+            var compensationAction = MockAction(failCount: 10, failureMessage: "Compensation failed");
+            var notifyCalled = false;
+            var breakCalled = false;
 
-        //    // Act & Assert
-        //    var ex = await Assert.ThrowsAsync<OperationCanceledException>(async () =>
-        //    {
-        //        await _orchestrator.BeginWithTransaction()
-        //            .Do(MockAction()) // Step 1: success
-        //                .OnFail(MockAction())
-        //            .AndThen()
-        //                .Do(step2Action).WithRetries(3, TimeSpan.FromMilliseconds(10)) // Step 2: fail
-        //                    .OnFail(compensationAction).WithRetries(2, TimeSpan.FromMilliseconds(10))
-        //                    .OnFailError(async _ => { notifyCalled = true; await Task.CompletedTask; })
+            // Act & Assert
+            var ex = await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            {
+                await _orchestrator.BeginWithTransaction()
+                    .Do(MockAction()) // Step 1: success
+                        .OnFail(MockAction())
+                    .AndThen()
+                        .Do(step2Action).WithRetries(3, TimeSpan.FromMilliseconds(10)) // Step 2: fail
+                            .OnFail(compensationAction).WithRetries(2, TimeSpan.FromMilliseconds(10))
+                            .OnFailError(async (_, _) => { notifyCalled = true; await Task.CompletedTask; })
 
-        //                .Break(ct =>
-        //                {
-        //                    breakCalled = true;
-        //                    return Task.FromException(new OperationCanceledException("Abort: Compensation failed"));
-        //                })
-        //            .AndThen()
-        //            .RunWithTransactionAsync(CancellationToken.None);
-        //    });
+                        .Break(ct =>
+                        {
+                            breakCalled = true;
+                            return Task.FromException(new OperationCanceledException("Abort: Compensation failed"));
+                        })
+                    .AndThen()
+                    .RunWithTransactionAsync(CancellationToken.None);
+            });
 
-        //    // Assert
-        //    Assert.Contains("Abort: Compensation failed", ex.Message);
-        //    Assert.True(notifyCalled);
-        //    Assert.True(breakCalled);
-        //    _mockTx.Verify(tx => tx.CommitAsync(CancellationToken.None), Times.Never);
-        //    _mockTx.Verify(tx => tx.RollbackAsync(CancellationToken.None), Times.Once);
-        //}
+            // Assert
+            Assert.Contains("Abort: Compensation failed", ex.Message);
+            Assert.True(notifyCalled);
+            Assert.True(breakCalled);
+            _mockTx.Verify(tx => tx.CommitAsync(CancellationToken.None), Times.Never);
+            _mockTx.Verify(tx => tx.RollbackAsync(CancellationToken.None), Times.Once);
+        }
         //#endregion
 
         //#region Шаг 2 упал → компенсация успешна со 2-й попытки → Break → откат транзакции

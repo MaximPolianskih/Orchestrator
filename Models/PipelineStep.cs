@@ -14,6 +14,7 @@
         public RetryConfig? RetryConfig { get; set; }
         public Func<CancellationToken, Task>? OnSuccessHandler { get; set; }
         public Func<CancellationToken, Task>? FailHandler { get; set; }
+        public Func<Exception, CancellationToken, Task>? FailErrorHandler { get; set; }
         public Func<CancellationToken, Task>? BreakHandler { get; set; }
     }
 }
