@@ -179,7 +179,7 @@ namespace Orchestrator.Tests
         }
         #endregion
 
-        //#region Шаг 2 упал → компенсация упала после ретраев → откат транзакции
+        #region Шаг 2 упал → компенсация упала после ретраев → откат транзакции
         [Fact]
         public async Task RunAsync_Step2Fails_CompensationFailsAfterRetries_NotifyEmail_Aborts()
         {
@@ -216,147 +216,139 @@ namespace Orchestrator.Tests
             _mockTx.Verify(tx => tx.CommitAsync(CancellationToken.None), Times.Never);
             _mockTx.Verify(tx => tx.RollbackAsync(CancellationToken.None), Times.Once);
         }
-        //#endregion
+        #endregion
 
-        //#region Шаг 2 упал → компенсация успешна со 2-й попытки → Break → откат транзакции
-        //[Fact]
-        //public async Task RunAsync_Step2Fails_CompensationSucceedsOnRetry_BreakCalled()
-        //{
-        //    // Arrange
-        //    var step2Action = MockActionWithResult(false);
-        //    var compensationAction = MockAction(failCount: 1); // Успех со 2-й попытки
-        //    var breakCalled = false;
+        #region Шаг 2 упал → компенсация успешна со 2-й попытки → Break → откат транзакции
+        [Fact]
+        public async Task RunAsync_Step2Fails_CompensationSucceedsOnRetry_BreakCalled()
+        {
+            // Arrange
+            var step2Action = MockActionWithResult(false);
+            var compensationAction = MockAction(failCount: 1); // Успех со 2-й попытки
+            var breakCalled = false;
 
-        //    // Act & Assert
-        //    var ex = await Assert.ThrowsAsync<OperationCanceledException>(async () =>
-        //    {
-        //        await _orchestrator.BeginWithTransaction()
-        //            .Do(MockAction())
-        //            .OnFail().Handle(MockAction())
-        //            .AndThen().Do(step2Action)
-        //            .OnFail()
-        //                .CompensateWith(compensationAction)
-        //                .WithRetries(3, TimeSpan.FromMilliseconds(10))
-        //                .OnCompensationFail(MockAction())
-        //                .EndCompensation()
-        //                .Break(ct =>
-        //                {
-        //                    breakCalled = true;
-        //                    return Task.FromException(new OperationCanceledException("Abort"));
-        //                })
-        //            .AndThen()
-        //            .RunWithTransactionAsync(CancellationToken.None);
-        //    });
+            // Act & Assert
+            var ex = await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            {
+                await _orchestrator.BeginWithTransaction()
+                    .Do(MockAction())
+                    .OnFail(MockAction())
+                    .AndThen().Do(step2Action)
+                    .OnFail(compensationAction).WithRetries(3, TimeSpan.FromMilliseconds(10))
+                    .OnFailError(async (_, _) => { await Task.CompletedTask; })
+                    .AndThen()
+                    .RunWithTransactionAsync(CancellationToken.None);
+            });
 
-        //    Assert.True(breakCalled);
-        //    _mockTx.Verify(tx => tx.CommitAsync(CancellationToken.None), Times.Never);
-        //}
-        //#endregion
+            Assert.True(breakCalled);
+            _mockTx.Verify(tx => tx.CommitAsync(CancellationToken.None), Times.Never);
+        }
+        #endregion
 
-        //#region Шаг 3 (Kafka Commit) упал после всех ретраев → Handle → уведомление + откат транзакции
-        //[Fact]
-        //public async Task RunAsync_Step3FailsAfterRetries_HandleNotifiesAndAborts()
-        //{
-        //    // Arrange
-        //    var kafkaAction = MockAction(failCount: 10, failureMessage: "Kafka commit failed");
-        //    var handleCalled = false;
-        //    var notifyCalled = false;
+        #region Шаг 3 (Kafka Commit) упал после всех ретраев → Handle → уведомление + откат транзакции
+        [Fact]
+        public async Task RunAsync_Step3FailsAfterRetries_HandleNotifiesAndAborts()
+        {
+            // Arrange
+            var kafkaAction = MockAction(failCount: 10, failureMessage: "Kafka commit failed");
+            var handleCalled = false;
+            var notifyCalled = false;
 
-        //    // Act & Assert
-        //    var ex = await Assert.ThrowsAsync<OperationCanceledException>(async () =>
-        //    {
-        //        await _orchestrator.BeginWithTransaction()
-        //            .Do(MockAction()) // Step 1
-        //            .OnFail().Handle(MockAction())
-        //            .AndThen().Do(MockAction()) // Step 2: success
-        //            .OnFail().CompensateWith(MockAction()).EndCompensation().Break(MockAction())
-        //            .AndThen().Do(kafkaAction) // Step 3: fail
-        //            .WithRetries(2, TimeSpan.FromMilliseconds(10))
-        //            .OnSuccess(MockAction())
-        //            .OnFail().Handle(ct =>
-        //            {
-        //                handleCalled = true;
-        //                notifyCalled = true;
+            // Act & Assert
+            var ex = await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            {
+                await _orchestrator.BeginWithTransaction()
+                    .Do(MockAction()) // Step 1
+                    .OnFail(MockAction())
+                    .AndThen().Do(MockAction()) // Step 2: success
+                    .OnFail(MockAction())
+                    .Break(MockAction())
+                    .AndThen().Do(kafkaAction) // Step 3: fail
+                    .WithRetries(2, TimeSpan.FromMilliseconds(10))
+                    .OnSuccess(MockAction())
+                    .OnFail(ct =>
+                    {
+                        handleCalled = true;
+                        notifyCalled = true;
 
-        //                throw new OperationCanceledException("Abort: Kafka failed");
-        //            })
-        //            .AndThen()
-        //            .RunWithTransactionAsync(CancellationToken.None);
-        //    });
+                        throw new OperationCanceledException("Abort: Kafka failed");
+                    })
+                    .AndThen()
+                    .RunWithTransactionAsync(CancellationToken.None);
+            });
 
-        //    // Assert
-        //    Assert.Contains("Abort: Kafka failed", ex.Message);
-        //    Assert.True(handleCalled);
-        //    Assert.True(notifyCalled);
-        //    _mockTx.Verify(tx => tx.CommitAsync(CancellationToken.None), Times.Never);
-        //}
-        //#endregion
+            // Assert
+            Assert.Contains("Abort: Kafka failed", ex.Message);
+            Assert.True(handleCalled);
+            Assert.True(notifyCalled);
+            _mockTx.Verify(tx => tx.CommitAsync(CancellationToken.None), Times.Never);
+        }
+        #endregion
 
-        //#region Шаг 3 успешен со 2-й попытки → вызван OnSuccess → коммит
-        //[Fact]
-        //public async Task RunAsync_Step3SucceedsOnRetry_OnSuccessCalled_CommitsTransaction()
-        //{
-        //    // Arrange
-        //    var kafkaAction = MockAction(failCount: 1); // Успех со 2-й попытки
-        //    var onSuccessCalled = false;
+        #region Шаг 3 успешен со 2-й попытки → вызван OnSuccess → коммит
+        [Fact]
+        public async Task RunAsync_Step3SucceedsOnRetry_OnSuccessCalled_CommitsTransaction()
+        {
+            // Arrange
+            var kafkaAction = MockAction(failCount: 1); // Успех со 2-й попытки
+            var onSuccessCalled = false;
 
-        //    // Act
-        //    await _orchestrator.BeginWithTransaction()
-        //        .Do(MockAction())
-        //        .OnFail().Handle(MockAction())
-        //        .AndThen().Do(MockAction())
-        //        .OnFail().CompensateWith(MockAction()).EndCompensation().Break(MockAction())
-        //        .AndThen().Do(kafkaAction) // Step 3
-        //        .WithRetries(3, TimeSpan.FromMilliseconds(10))
-        //        .OnSuccess(ct =>
-        //        {
-        //            onSuccessCalled = true;
-        //            return Task.CompletedTask;
-        //        })
-        //        .OnFail().Handle(MockAction())
-        //        .AndThen()
-        //        .RunWithTransactionAsync(CancellationToken.None);
+            // Act
+            await _orchestrator.BeginWithTransaction()
+                .Do(MockAction())
+                .OnFail(MockAction())
+                .AndThen().Do(MockAction())
+                .OnFail(MockAction())
+                .Break(MockAction())
+                .AndThen().Do(kafkaAction) // Step 3
+                .WithRetries(3, TimeSpan.FromMilliseconds(10))
+                .OnSuccess(ct =>
+                {
+                    onSuccessCalled = true;
+                    return Task.CompletedTask;
+                })
+                .OnFail(MockAction())
+                .AndThen()
+                .RunWithTransactionAsync(CancellationToken.None);
 
-        //    // Assert
-        //    Assert.True(onSuccessCalled);
-        //    _mockTx.Verify(tx => tx.CommitAsync(CancellationToken.None), Times.Once);
-        //}
-        //#endregion
+            // Assert
+            Assert.True(onSuccessCalled);
+            _mockTx.Verify(tx => tx.CommitAsync(CancellationToken.None), Times.Once);
+        }
+        #endregion
 
-        //#region Проверка иерархического имени шага в логах
-        //[Fact]
-        //public async Task RunAsync_StepNameBuiltCorrectly_WithRetriesAndCompensation()
-        //{
-        //    // Arrange: используем реальный логгер для захвата имени
-        //    var logEntries = new List<string>();
-        //    var mockLogger = new Mock<ILogger<TransactionalFlow>>();
+        #region Проверка иерархического имени шага в логах
+        [Fact]
+        public async Task RunAsync_StepNameBuiltCorrectly_WithRetriesAndCompensation()
+        {
+            // Arrange: используем реальный логгер для захвата имени
+            var logEntries = new List<string>();
+            var mockLogger = new Mock<ILogger<ITransactionalFlow>>();
 
-        //    var mockProcessOrchestratorTransaction = new Mock<IProcessOrchestratorTransaction>();
-        //    var mockLoggerProcessOrchestrator = new Mock<ILogger<ProcessOrchestrator>>();
-        //    var orchestrator = new ProcessOrchestrator(
-        //        mockProcessOrchestratorTransaction.Object,
-        //        mockLoggerProcessOrchestrator.Object);
+            var mockProcessOrchestratorTransaction = new Mock<IProcessOrchestratorTransaction>();
+            var mockLoggerProcessOrchestrator = new Mock<ILogger<ProcessOrchestrator>>();
+            var orchestrator = new ProcessOrchestrator(
+                mockProcessOrchestratorTransaction.Object,
+                mockLoggerProcessOrchestrator.Object);
 
-        //    // Act: Step 2 падает, компенсация успешна
-        //    var ex = await Assert.ThrowsAsync<OperationCanceledException>(async () =>
-        //    {
-        //        await orchestrator.BeginWithTransaction()
-        //            .Do(MockAction())
-        //            .OnFail().Handle(MockAction())
-        //            .AndThen().Do(MockActionWithResult(false)) // Step 2 fail
-        //            .OnFail()
-        //                .CompensateWith(MockActionWithResult(true))
-        //                .EndCompensation()
-        //                .Break(ct => Task.FromException(new OperationCanceledException("Abort")))
-        //            .AndThen()
-        //            .RunWithTransactionAsync(CancellationToken.None);
-        //    });
+            // Act: Step 2 падает, компенсация успешна
+            var ex = await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            {
+                await orchestrator.BeginWithTransaction()
+                    .Do(MockAction())
+                    .OnFail(MockAction())
+                    .AndThen().Do(MockActionWithResult(false)) // Step 2 fail
+                    .OnFail(MockActionWithResult(true))
+                    .Break(ct => Task.FromException(new OperationCanceledException("Abort")))
+                    .AndThen()
+                    .RunWithTransactionAsync(CancellationToken.None);
+            });
 
-        //    // Assert: проверяем, что имя шага содержит цепочку вызовов
-        //    var log = string.Join("\n", logEntries);
-        //    Assert.Contains("BeginWithTransaction.Execute.AndThen.Execute.OnFail.CompensateWith", log);
-        //}
-        //#endregion
+            // Assert: проверяем, что имя шага содержит цепочку вызовов
+            var log = string.Join("\n", logEntries);
+            Assert.Contains("BeginWithTransaction.Execute.AndThen.Execute.OnFail.CompensateWith", log);
+        }
+        #endregion
 
         #region Проверка иерархической обработки ошибок (Обработчик переопредлеляется)
         [Fact]
