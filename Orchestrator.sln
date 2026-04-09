@@ -10,7 +10,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.gitignore = .gitignore
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Orchestrator.Tests", "..\Orchestrator\Orchestrator.Tests\Orchestrator.Tests.csproj", "{41510F20-237D-49AE-A8C6-42AE5EB317E9}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{A68A16CD-A41B-4C88-B1F7-12D0D209037F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Orchestrator.Tests", "tests\Orchestrator.Tests\Orchestrator.Tests.csproj", "{200C518E-B2A5-4D78-9912-3FF69B6D6E54}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -22,13 +24,16 @@ Global
 		{7320C3B4-7C4B-479C-936F-33B2744FFF37}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7320C3B4-7C4B-479C-936F-33B2744FFF37}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7320C3B4-7C4B-479C-936F-33B2744FFF37}.Release|Any CPU.Build.0 = Release|Any CPU
-		{41510F20-237D-49AE-A8C6-42AE5EB317E9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{41510F20-237D-49AE-A8C6-42AE5EB317E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{41510F20-237D-49AE-A8C6-42AE5EB317E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{41510F20-237D-49AE-A8C6-42AE5EB317E9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{200C518E-B2A5-4D78-9912-3FF69B6D6E54}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{200C518E-B2A5-4D78-9912-3FF69B6D6E54}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{200C518E-B2A5-4D78-9912-3FF69B6D6E54}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{200C518E-B2A5-4D78-9912-3FF69B6D6E54}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{200C518E-B2A5-4D78-9912-3FF69B6D6E54} = {A68A16CD-A41B-4C88-B1F7-12D0D209037F}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {09E9700E-248A-4AD8-8208-A884ECD87A2E}
